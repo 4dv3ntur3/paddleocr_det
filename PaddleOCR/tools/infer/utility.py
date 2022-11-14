@@ -340,7 +340,7 @@ def draw_text_det_res(dt_boxes, img_path, scores):
     src_im = cv2.imread(img_path)
     for box, score in zip(dt_boxes, scores): ###
         box = np.array(box).astype(np.int32).reshape(-1, 2)
-        cv2.polylines(src_im, [box], True, color=(255, 255, 0), thickness=2)
+        cv2.polylines(src_im, [box], True, color=(255, 0, 255), thickness=1)
         
         ### writing score onto the image
         score_box_root = box[2]
@@ -354,7 +354,7 @@ def draw_text_det_res(dt_boxes, img_path, scores):
         # cv2.putText(src_im, str(round(score, 2)), (int(score_box[0][0][0]), int(score_box[0][0][1])), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 2, 0) # SIZE, COLOR, thickness, org 
         
         # scan_test_2.jpg, box[2]
-        cv2.putText(src_im, str(round(score, 2)), (int(score_box[0][0][0]), int(score_box[0][0][1])), cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 3, 0) # SIZE, COLOR, thickness, org 
+        # cv2.putText(src_im, str(round(score, 2)), (int(score_box[0][0][0]), int(score_box[0][0][1])), cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 3, 0) # SIZE, COLOR, thickness, org 
         
         ###
         

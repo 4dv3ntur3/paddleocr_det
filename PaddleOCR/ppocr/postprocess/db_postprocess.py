@@ -31,6 +31,7 @@ class DBPostProcess(object):
     The post process for Differentiable Binarization (DB).
     """
 
+    # box_thresh=0.3
     def __init__(self,
                  thresh=0.3,
                  box_thresh=0.7,
@@ -68,6 +69,8 @@ class DBPostProcess(object):
 
         boxes = []
         scores = []
+        
+
 
         contours, _ = cv2.findContours((bitmap * 255).astype(np.uint8),
                                        cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -115,9 +118,12 @@ class DBPostProcess(object):
 
         bitmap = _bitmap
         height, width = bitmap.shape
+        
+        kernel = np.ones((4, 4), np.uint8)
+        erosion = cv2.erode((bitmap * 255).astype(np.uint8), kernel, iterations=1)
 
         # 여기서 윤곽선 검출을 수행함 
-        outs = cv2.findContours((bitmap * 255).astype(np.uint8), cv2.RETR_EXTERNAL,
+        outs = cv2.findContours(erosion, cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
         
         # ###
@@ -298,6 +304,7 @@ class DBPostProcess(object):
         return cv2.mean(bitmap[ymin:ymax + 1, xmin:xmax + 1], mask)[0]
 
     def __call__(self, outs_dict, shape_list): # preds, shape_list
+        
         pred = outs_dict['maps'] #
         if isinstance(pred, paddle.Tensor):
             pred = pred.numpy()
@@ -306,9 +313,10 @@ class DBPostProcess(object):
         
         # print(pred.shape) # 1, 896, 672
         
-        segmentation_ = (pred*255).astype(np.uint8)[0]
-        cv2.imwrite("./output_small_text_{}.jpg".format(self.counter), segmentation_)
-    
+        # segmentation_ = (pred*255).astype(np.uint8)[0]
+        # cv2.imwrite("./output_thresh_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255).astype(np.uint8)[0])
+
+
         
         # # print(np.max(segmentatiion_), np.min(segmentatiion_))
         
@@ -329,9 +337,7 @@ class DBPostProcess(object):
                     self.dilation_kernel)
             else: ###
                 mask = segmentation[batch_index]
-                
-        
-                
+
             # 이미지 임계 처리 
             '''
             https://opencv-python.readthedocs.io/en/latest/doc/09.imageThresholding/imageThresholding.html 
