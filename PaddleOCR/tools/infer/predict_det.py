@@ -48,14 +48,16 @@ class TextDetector(object):
                 'limit_side_len': args.det_limit_side_len,
                 'limit_type': args.det_limit_type,
             }
-        }, {
+        }, 
+        {
             'NormalizeImage': {
                 'std': [0.229, 0.224, 0.225],
                 'mean': [0.485, 0.456, 0.406],
                 'scale': '1./255.',
                 'order': 'hwc'
             }
-        }, {
+        }, 
+        {
             'ToCHWImage': None
         }, {
             'KeepKeys': {
@@ -136,6 +138,7 @@ class TextDetector(object):
             sys.exit(0)
 
         self.preprocess_op = create_operators(pre_process_list)
+        # print(pre_process_list)
         self.postprocess_op = build_post_process(postprocess_params)
         self.predictor, self.input_tensor, self.output_tensors, self.config = utility.create_predictor(
             args, 'det', logger)
@@ -213,7 +216,8 @@ class TextDetector(object):
         dt_boxes = np.array(dt_boxes_new)
         return dt_boxes
 
-    def __call__(self, img):
+    def __call__(self, img, image_pure_name):
+        
         ori_im = img.copy()
         data = {'image': img}
 
@@ -221,10 +225,17 @@ class TextDetector(object):
 
         if self.args.benchmark:
             self.autolog.times.start()
+            
+        # print(data['image'].shape)
 
         data = transform(data, self.preprocess_op)
         img, shape_list = data
         # print(data[1]) # [898.         668.           0.99777283   1.00598802]
+        
+        # print(img.shape)
+        # img_ = np.transpose(img, (1, 2, 0))
+        # cv2.imwrite('./augmented_sample_{}.jpg'.format(self.counter), img_)
+
         # quit()
         if img is None:
             return None, 0
@@ -264,26 +275,31 @@ class TextDetector(object):
                 preds['level_{}'.format(i)] = output
         else:
             raise NotImplementedError
+        
+        
+        ### 
+        # print(preds.shape)
+        print(len(outputs)) # 1 
 
         #self.predictor.try_shrink_memory()
         
         ### 
         # save pred map
-        print(type(outputs[0])) # ndarray
-        print(np.max(outputs[0]), np.min(outputs[0]))
-        output = np.squeeze(outputs[0])
-        output = (output*255).astype(np.uint8)
-        print(np.max(output), np.min(output)) # 255, 0
-        print(output.shape) # 1, 1, 896, 672?
+        # print(type(outputs[0])) # ndarray
+        # print(np.max(outputs[0]), np.min(outputs[0]))
+        # output = np.squeeze(outputs[0])
+        # output = (output*255).astype(np.uint8)
+        # print(np.max(output), np.min(output)) # 255, 0
+        # print(output.shape) # 1, 1, 896, 672?
         # output = np.transpose(output, (1, 2, 0)) # CHW -> HWC
         # print("transposed: ", output.shape)
         
-        from PIL import Image
-        im = Image.fromarray(output)
-        im.save('./sample_result_{}.jpg'.format(self.counter))
+        # from PIL import Image
+        # im = Image.fromarray(output)
+        # im.save('./sample_result_{}.jpg'.format(self.counter))
         self.counter += 1
         
-        post_result = self.postprocess_op(preds, shape_list)
+        post_result = self.postprocess_op(preds, shape_list, image_pure_name=image_pure_name)
         dt_boxes = post_result[0]['points']
         scores = post_result[0]['scores'] ###
         if (self.det_algorithm == "SAST" and self.det_sast_polygon) or (
@@ -302,7 +318,7 @@ class TextDetector(object):
 if __name__ == "__main__":
     args = utility.parse_args() ###
     image_file_list = get_image_file_list(args.image_dir)
-    text_detector = TextDetector(args)
+    text_detector = TextDetector(args) ###
     count = 0
     total_time = 0
     #draw_img_save = "./inference_results" ###
@@ -320,11 +336,20 @@ if __name__ == "__main__":
         img, flag, _ = check_and_read(image_file)
         if not flag:
             img = cv2.imread(image_file)
+            
+            # img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE) ### gray로 읽기
+            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # cv2.imwrite('./output_gray_{}.jpg'.format(count+1), img)
+            
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
             continue
         st = time.time()
-        dt_boxes, _, scores= text_detector(img) ###
+        
+        ### 
+        img_name_pure = os.path.split(image_file)[-1]
+
+        dt_boxes, _, scores= text_detector(img, img_name_pure) ###
         elapse = time.time() - st
         if count > 0:
             total_time += elapse
@@ -335,7 +360,7 @@ if __name__ == "__main__":
         logger.info(save_pred)
         logger.info("The predict time of {}: {}".format(image_file, elapse))
         src_im = utility.draw_text_det_res(dt_boxes, image_file, scores)
-        img_name_pure = os.path.split(image_file)[-1]
+        
         img_path = os.path.join(draw_img_save,
                                 "det_res_{}".format(img_name_pure))
         cv2.imwrite(img_path, src_im)

@@ -126,9 +126,6 @@ def init_args():
     parser.add_argument("--sr_image_shape", type=str, default="3, 32, 128")
     parser.add_argument("--sr_batch_num", type=int, default=1)
 
-    #
-    parser.add_argument(
-        "--draw_img_save_dir", type=str, default="./inference_results")
     parser.add_argument("--save_crop_res", type=str2bool, default=False)
     parser.add_argument("--crop_res_save_dir", type=str, default="./crop_output")
 
@@ -142,6 +139,16 @@ def init_args():
 
     parser.add_argument("--show_log", type=str2bool, default=True)
     parser.add_argument("--use_onnx", type=str2bool, default=False)
+    
+    
+    ### apply erosion
+    parser.add_argument("--erode_kernel", type=int, default=4, help="kernel size for opencv erosion")
+    
+    
+    ### directory for saving inference results
+    parser.add_argument(
+        "--draw_img_save_dir", type=str, default="./inference_results")
+    
     
     
     return parser
@@ -272,7 +279,7 @@ def create_predictor(args, mode, logger):
         config.switch_ir_optim(True)
 
         # create predictor
-        predictor = inference.create_predictor(config)
+        predictor = inference.create_predictor(config) # 
         input_names = predictor.get_input_names()
         if mode in ['ser', 're']:
             input_tensor = []
@@ -340,7 +347,7 @@ def draw_text_det_res(dt_boxes, img_path, scores):
     src_im = cv2.imread(img_path)
     for box, score in zip(dt_boxes, scores): ###
         box = np.array(box).astype(np.int32).reshape(-1, 2)
-        cv2.polylines(src_im, [box], True, color=(255, 0, 255), thickness=1)
+        cv2.polylines(src_im, [box], True, color=(255, 0, 255), thickness=2)
         
         ### writing score onto the image
         score_box_root = box[2]

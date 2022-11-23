@@ -69,8 +69,6 @@ class DBPostProcess(object):
 
         boxes = []
         scores = []
-        
-
 
         contours, _ = cv2.findContours((bitmap * 255).astype(np.uint8),
                                        cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -110,7 +108,7 @@ class DBPostProcess(object):
 
     ### boxes, scores = self.boxes_from_bitmap(pred[batch_index], mask, src_w, src_h)
     
-    def boxes_from_bitmap(self, pred, _bitmap, dest_width, dest_height):
+    def boxes_from_bitmap(self, pred, _bitmap, dest_width, dest_height, image_pure_name):
         '''
         _bitmap: single map with shape (1, H, W),
                 whose values are binarized as {0, 1}
@@ -118,13 +116,13 @@ class DBPostProcess(object):
 
         bitmap = _bitmap
         height, width = bitmap.shape
+        bitmap__ = (bitmap * 255).astype(np.uint8)
         
         kernel = np.ones((4, 4), np.uint8)
-        erosion = cv2.erode((bitmap * 255).astype(np.uint8), kernel, iterations=1)
+        erosion = cv2.erode(bitmap__, kernel, iterations=1)
 
         # 여기서 윤곽선 검출을 수행함 
-        outs = cv2.findContours(erosion, cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
+        outs = cv2.findContours(erosion, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         # ###
         # if self.counter == 2:
@@ -133,11 +131,13 @@ class DBPostProcess(object):
         #     quit()
             
         
-        
         # from PIL import Image
         # im = Image.fromarray((bitmap*255).astype(np.uint8))
         # im.save('./img_bitmap_mask_{}.jpg'.format(self.counter))
         
+        # save bitmap
+        cv2.imwrite('./det_res_{}_mask.jpg'.format(image_pure_name), erosion)
+
         
         if len(outs) == 3:
             img, contours, _ = outs[0], outs[1], outs[2]
@@ -165,7 +165,6 @@ class DBPostProcess(object):
         scores = []
         for index in range(num_contours):
             contour = contours[index]
-
             
             points, sside = self.get_mini_boxes(contour, src_img)
             
@@ -303,7 +302,7 @@ class DBPostProcess(object):
         cv2.fillPoly(mask, contour.reshape(1, -1, 2).astype(np.int32), 1)
         return cv2.mean(bitmap[ymin:ymax + 1, xmin:xmax + 1], mask)[0]
 
-    def __call__(self, outs_dict, shape_list): # preds, shape_list
+    def __call__(self, outs_dict, shape_list, image_pure_name): # preds, shape_list
         
         pred = outs_dict['maps'] #
         if isinstance(pred, paddle.Tensor):
@@ -315,8 +314,6 @@ class DBPostProcess(object):
         
         # segmentation_ = (pred*255).astype(np.uint8)[0]
         # cv2.imwrite("./output_thresh_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255).astype(np.uint8)[0])
-
-
         
         # # print(np.max(segmentatiion_), np.min(segmentatiion_))
         
@@ -355,7 +352,7 @@ class DBPostProcess(object):
                                                           mask, src_w, src_h)
             else:
                 boxes, scores = self.boxes_from_bitmap(pred[batch_index], mask, ###
-                                                       src_w, src_h)
+                                                       src_w, src_h, image_pure_name)
 
             boxes_batch.append({'points': boxes, 'scores':scores}) ###
             # print(boxes[0])

@@ -224,7 +224,8 @@ class DetResizeForTest(object):
 
     def __call__(self, data):
         img = data['image']
-        src_h, src_w, _ = img.shape
+        # src_h, src_w, _ = img.shape
+        src_h, src_w, _ = img.shape ### for grayscale
         if sum([src_h, src_w]) < 64:
             img = self.image_padding(img)
 
@@ -269,6 +270,7 @@ class DetResizeForTest(object):
         """
         limit_side_len = self.limit_side_len
         h, w, c = img.shape
+        # h, w = img.shape
 
         # limit the max side
         if self.limit_type == 'max':

@@ -46,13 +46,19 @@ from .fce_targets import FCENetTargets
 
 
 def transform(data, ops=None):
+    
+    
     """ transform """
     if ops is None:
         ops = []
     for op in ops:
+        
         data = op(data)
+
         if data is None:
             return None
+
+
     return data
 
 
