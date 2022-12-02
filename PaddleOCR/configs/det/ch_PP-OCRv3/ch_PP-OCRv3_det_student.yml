@@ -1,10 +1,10 @@
 Global:
   debug: false
-  use_gpu: true
-  epoch_num: 500
+  use_gpu: false
+  epoch_num: 10
   log_smooth_window: 20
   print_batch_step: 10
-  save_model_dir: ./output/ch_PP-OCR_V3_det/
+  save_model_dir: ./output/ch_PP-OCR_V3_det_debug/
   save_epoch_step: 100
   eval_batch_step:
   - 0
@@ -65,9 +65,9 @@ Metric:
 Train:
   dataset:
     name: SimpleDataSet
-    data_dir: ./train_data/icdar2015/text_localization/
+    data_dir: ./train_for_aug_check
     label_file_list:
-      - ./train_data/icdar2015/text_localization/train_icdar2015_label.txt
+      - ./train_for_aug_check/train_label.txt
     ratio_list: [1.0]
     transforms:
     - DecodeImage:
@@ -102,17 +102,6 @@ Train:
     - MakeShrinkMap:
         shrink_ratio: 0.4
         min_text_size: 8
-    - NormalizeImage:
-        scale: 1./255.
-        mean:
-        - 0.485
-        - 0.456
-        - 0.406
-        std:
-        - 0.229
-        - 0.224
-        - 0.225
-        order: hwc
     - ToCHWImage: null
     - KeepKeys:
         keep_keys:
@@ -121,6 +110,7 @@ Train:
         - threshold_mask
         - shrink_map
         - shrink_mask
+        - polys
   loader:
     shuffle: true
     drop_last: false
@@ -129,9 +119,9 @@ Train:
 Eval:
   dataset:
     name: SimpleDataSet
-    data_dir: ./train_data/icdar2015/text_localization/
+    data_dir: ./train_for_aug_check
     label_file_list:
-      - ./train_data/icdar2015/text_localization/test_icdar2015_label.txt
+      - ./train_for_aug_check/test_label.txt
     transforms:
     - DecodeImage:
         img_mode: BGR

@@ -19,15 +19,11 @@ import traceback
 from paddle.io import Dataset
 from .imaug import transform, create_operators
 
+from PIL import Image
 
 class SimpleDataSet(Dataset):
     def __init__(self, config, mode, logger, seed=None):
         super(SimpleDataSet, self).__init__()
-        
-        ###
-        self.save_counter = 1
-        
-        
         self.logger = logger
         self.mode = mode.lower()
 
@@ -57,6 +53,9 @@ class SimpleDataSet(Dataset):
         self.ext_op_transform_idx = dataset_config.get("ext_op_transform_idx",
                                                        2)
         self.need_reset = True in [x < 1 for x in ratio_list]
+
+
+        self.save_counter = 0
 
     def get_image_info_list(self, file_list, ratio_list):
         if isinstance(file_list, str):
@@ -132,7 +131,7 @@ class SimpleDataSet(Dataset):
             file_name = self._try_parse_filename_list(file_name)
             label = substr[1]
             img_path = os.path.join(self.data_dir, file_name)
-            data = {'img_path': img_path, 'label': label, 'fn': substr[0]} ###
+            data = {'img_path': img_path, 'label': label}
             if not os.path.exists(img_path):
                 raise Exception("{} does not exist!".format(img_path))
             with open(data['img_path'], 'rb') as f:
@@ -141,35 +140,44 @@ class SimpleDataSet(Dataset):
             data['ext_data'] = self.get_ext_data()
             outs = transform(data, self.ops)
             
-            ### save images right before input
-            from PIL import Image
+            '''
             images = outs[0]
             fn = os.path.splitext(file_name)[0]
             
             keys = ['images', 'threshold_map', 'threshold_mask', 'shrink_map', 'shrink_mask', 'bbox']
-            print("=======================")
+            print("====================")
             for i in range(len(outs)):
                 sample_aug = None
-                # print(outs[i].dtype) # float32
+                print(outs[i].dtype)
                 a = (outs[i]*255).astype(np.uint8)
-                
+                print("max: {}, min: {}".format(np.max(outs[i]), np.min(outs[i])))
+                print("max: {}, min: {}".format(np.max(a), np.min(a)))
+                print("shape: {}".format(outs[i].shape))
+                print("=============================================")
+
                 if i == 0: # image
                     outs_ = np.transpose(outs[i], (1, 2, 0))
                     sample_aug = Image.fromarray(outs_)
-                
-                elif i == 5: # bbox 
+                elif i == 5:
+                    # save bbox
                     np.save("sample_aug/train/{0}-{1:05d}-{2}.npy".format(fn, self.save_counter, keys[i]), outs[i])
-                
                 else:
                     sample_aug = Image.fromarray(a)
-                
-                if sample_aug:
-                    sample_aug.save("sample_aug/train/{0}-{1:05d}-{2}.jpeg".format(fn, self.save_counter, keys[i]), "JPEG")
+
+                if sample_aug: 
+                    sample_aug.save("sample_aug/train/{0}-{1:05d}-{2}.jpeg".format(fn, self.save_counter, keys[i]), 'JPEG')
+
+            
+
+           #  print(outs[0].shape)
+           # print(np.max(outs[0]), np.min(outs[0]))
+#            outs_ = np.transpose(outs[0], (1, 2, 0))
+#            sample_aug = Image.fromarray(outs_)
+#            sample_aug.save("/home/PaddleOCR/sample_aug/train/sample-{0:05d}.jpeg".format(self.save_counter), 'JPEG')
 
             self.save_counter += 1
-            ########################
-
-
+            '''
+            
         except:
             self.logger.error(
                 "When parsing line {}, error happened with msg: {}".format(

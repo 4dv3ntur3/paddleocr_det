@@ -25,8 +25,6 @@ import datetime
 import paddle
 import paddle.distributed as dist
 from tqdm import tqdm
-import cv2
-import numpy as np
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from ppocr.utils.stats import TrainingStats
@@ -37,6 +35,9 @@ from ppocr.utils.loggers import VDLLogger, WandbLogger, Loggers
 from ppocr.utils import profiler
 from ppocr.data import build_dataloader
 
+import cv2
+import PIL
+import numpy as np
 
 class ArgsParser(ArgumentParser):
     def __init__(self):
@@ -157,26 +158,6 @@ def check_xpu(use_xpu):
         pass
 
 
-def to_float32(preds):
-    if isinstance(preds, dict):
-        for k in preds:
-            if isinstance(preds[k], dict) or isinstance(preds[k], list):
-                preds[k] = to_float32(preds[k])
-            elif isinstance(preds[k], paddle.Tensor):
-                preds[k] = preds[k].astype(paddle.float32)
-    elif isinstance(preds, list):
-        for k in range(len(preds)):
-            if isinstance(preds[k], dict):
-                preds[k] = to_float32(preds[k])
-            elif isinstance(preds[k], list):
-                preds[k] = to_float32(preds[k])
-            elif isinstance(preds[k], paddle.Tensor):
-                preds[k] = preds[k].astype(paddle.float32)
-    elif isinstance(preds, paddle.Tensor):
-        preds = preds.astype(paddle.float32)
-    return preds
-
-
 def train(config,
           train_dataloader,
           valid_dataloader,
@@ -190,9 +171,7 @@ def train(config,
           pre_best_model_dict,
           logger,
           log_writer=None,
-          scaler=None,
-          amp_level='O2',
-          amp_custom_black_list=[]):
+          scaler=None):
     cal_metric_during_train = config['Global'].get('cal_metric_during_train',
                                                    False)
     calc_epoch_interval = config['Global'].get('calc_epoch_interval', 1)
@@ -231,10 +210,7 @@ def train(config,
     model.train()
 
     use_srn = config['Architecture']['algorithm'] == "SRN"
-    extra_input_models = [
-        "SRN", "NRTR", "SAR", "SEED", "SVTR", "SPIN", "VisionLAN",
-        "RobustScanner"
-    ]
+    extra_input_models = ["SRN", "NRTR", "SAR", "SEED", "SVTR"]
     extra_input = False
     if config['Architecture']['algorithm'] == 'Distillation':
         for key in config['Architecture']["Models"]:
@@ -260,14 +236,14 @@ def train(config,
 
     max_iter = len(train_dataloader) - 1 if platform.system(
     ) == "Windows" else len(train_dataloader)
-
+    
+    save_counter = 0
     for epoch in range(start_epoch, epoch_num + 1):
         if train_dataloader.dataset.need_reset:
             train_dataloader = build_dataloader(
                 config, 'Train', device, logger, seed=epoch)
             max_iter = len(train_dataloader) - 1 if platform.system(
             ) == "Windows" else len(train_dataloader)
-
         for idx, batch in enumerate(train_dataloader):
             profiler.add_profiler_step(profiler_options)
             train_reader_cost += time.time() - reader_start
@@ -275,61 +251,55 @@ def train(config,
                 break
             lr = optimizer.get_lr()
             images = batch[0]
-            
-            ###
+
+            print("==========================")
+            a = np.array(batch[0])
+            print(type(a))
+            print(a.dtype)
+            print("==========================")
             quit()
+
             
-            # if idx % 5 == 0:
-            #     save_counter = 0
-            #     for image in images:
-            #         cv2.imwrite('./sample_aug/sample-{0:05d}.jpg'.format(save_counter), images[0])
-            
+
             if use_srn:
                 model_average = True
+
             # use amp
             if scaler:
-                with paddle.amp.auto_cast(level=amp_level, custom_black_list=amp_custom_black_list):
+                with paddle.amp.auto_cast():
                     if model_type == 'table' or extra_input:
                         preds = model(images, data=batch[1:])
-                    elif model_type in ["kie"]:
-                        preds = model(batch)
                     else:
                         preds = model(images)
-                preds = to_float32(preds)
-                loss = loss_class(preds, batch)
-                avg_loss = loss['loss']
+            else:
+                if model_type == 'table' or extra_input:
+                    preds = model(images, data=batch[1:])
+                elif model_type in ["kie", 'vqa']:
+                    preds = model(batch)
+                else:
+                    preds = model(images)
+
+            loss = loss_class(preds, batch)
+            avg_loss = loss['loss']
+
+            if scaler:
                 scaled_avg_loss = scaler.scale(avg_loss)
                 scaled_avg_loss.backward()
                 scaler.minimize(optimizer, scaled_avg_loss)
             else:
-                if model_type == 'table' or extra_input:
-                    preds = model(images, data=batch[1:])
-                elif model_type in ["kie", 'sr']:
-                    preds = model(batch)
-                else:
-                    preds = model(images)
-                loss = loss_class(preds, batch)
-                avg_loss = loss['loss']
                 avg_loss.backward()
                 optimizer.step()
-
             optimizer.clear_grad()
 
             if cal_metric_during_train and epoch % calc_epoch_interval == 0:  # only rec and cls need
                 batch = [item.numpy() for item in batch]
-                if model_type in ['kie', 'sr']:
+                if model_type in ['table', 'kie']:
                     eval_class(preds, batch)
-                elif model_type in ['table']:
-                    post_result = post_process_class(preds, batch)
-                    eval_class(post_result, batch)
                 else:
                     if config['Loss']['name'] in ['MultiLoss', 'MultiLoss_v2'
                                                   ]:  # for multi head loss
                         post_result = post_process_class(
                             preds['ctc'], batch[1])  # for CTC head out
-                    elif config['Loss']['name'] in ['VLLoss']:
-                        post_result = post_process_class(preds, batch[1],
-                                                         batch[-1])
                     else:
                         post_result = post_process_class(preds, batch[1])
                     eval_class(post_result, batch)
@@ -350,9 +320,9 @@ def train(config,
             stats['lr'] = lr
             train_stats.update(stats)
 
+
             if log_writer is not None and dist.get_rank() == 0:
-                log_writer.log_metrics(
-                    metrics=train_stats.get(), prefix="TRAIN", step=global_step)
+                log_writer.log_metrics(metrics=train_stats.get(), prefix="TRAIN", step=global_step)
 
             if dist.get_rank() == 0 and (
                 (global_step > 0 and global_step % print_batch_step == 0) or
@@ -363,8 +333,8 @@ def train(config,
                     len(train_dataloader) - idx - 1) * eta_meter.avg
                 eta_sec_format = str(datetime.timedelta(seconds=int(eta_sec)))
                 strs = 'epoch: [{}/{}], global_step: {}, {}, avg_reader_cost: ' \
-                    '{:.5f} s, avg_batch_cost: {:.5f} s, avg_samples: {}, ' \
-                    'ips: {:.5f} samples/s, eta: {}'.format(
+                       '{:.5f} s, avg_batch_cost: {:.5f} s, avg_samples: {}, ' \
+                       'ips: {:.5f} samples/s, eta: {}'.format(
                     epoch, epoch_num, global_step, logs,
                     train_reader_cost / print_batch_step,
                     train_batch_cost / print_batch_step,
@@ -392,18 +362,14 @@ def train(config,
                     post_process_class,
                     eval_class,
                     model_type,
-                    extra_input=extra_input,
-                    scaler=scaler,
-                    amp_level=amp_level,
-                    amp_custom_black_list=amp_custom_black_list)
+                    extra_input=extra_input)
                 cur_metric_str = 'cur metric, {}'.format(', '.join(
                     ['{}: {}'.format(k, v) for k, v in cur_metric.items()]))
                 logger.info(cur_metric_str)
 
                 # logger metric
                 if log_writer is not None:
-                    log_writer.log_metrics(
-                        metrics=cur_metric, prefix="EVAL", step=global_step)
+                    log_writer.log_metrics(metrics=cur_metric, prefix="EVAL", step=global_step)
 
                 if cur_metric[main_indicator] >= best_model_dict[
                         main_indicator]:
@@ -426,18 +392,11 @@ def train(config,
                 logger.info(best_str)
                 # logger best metric
                 if log_writer is not None:
-                    log_writer.log_metrics(
-                        metrics={
-                            "best_{}".format(main_indicator):
-                            best_model_dict[main_indicator]
-                        },
-                        prefix="EVAL",
-                        step=global_step)
-
-                    log_writer.log_model(
-                        is_best=True,
-                        prefix="best_accuracy",
-                        metadata=best_model_dict)
+                    log_writer.log_metrics(metrics={
+                        "best_{}".format(main_indicator): best_model_dict[main_indicator]
+                        }, prefix="EVAL", step=global_step)
+                    
+                    log_writer.log_model(is_best=True, prefix="best_accuracy", metadata=best_model_dict)
 
             reader_start = time.time()
         if dist.get_rank() == 0:
@@ -469,10 +428,11 @@ def train(config,
                 epoch=epoch,
                 global_step=global_step)
             if log_writer is not None:
-                log_writer.log_model(
-                    is_best=False, prefix='iter_epoch_{}'.format(epoch))
-        print("\n =========== {} sample saved\n ===========".format(save_counter))
-        quit()
+                log_writer.log_model(is_best=False, prefix='iter_epoch_{}'.format(epoch))
+
+        if epoch == 0:
+            quit()
+
     best_str = 'best metric, {}'.format(', '.join(
         ['{}: {}'.format(k, v) for k, v in best_model_dict.items()]))
     logger.info(best_str)
@@ -486,10 +446,7 @@ def eval(model,
          post_process_class,
          eval_class,
          model_type=None,
-         extra_input=False,
-         scaler=None,
-         amp_level='O2',
-         amp_custom_black_list = []):
+         extra_input=False):
     model.eval()
     with paddle.no_grad():
         total_frame = 0.0
@@ -501,38 +458,17 @@ def eval(model,
             leave=True)
         max_iter = len(valid_dataloader) - 1 if platform.system(
         ) == "Windows" else len(valid_dataloader)
-        sum_images = 0
         for idx, batch in enumerate(valid_dataloader):
             if idx >= max_iter:
                 break
             images = batch[0]
             start = time.time()
-
-            # use amp
-            if scaler:
-                with paddle.amp.auto_cast(level=amp_level, custom_black_list=amp_custom_black_list):
-                    if model_type == 'table' or extra_input:
-                        preds = model(images, data=batch[1:])
-                    elif model_type in ["kie"]:
-                        preds = model(batch)
-                    elif model_type in ['sr']:
-                        preds = model(batch)
-                        sr_img = preds["sr_img"]
-                        lr_img = preds["lr_img"]
-                    else:
-                        preds = model(images)
-                preds = to_float32(preds)
+            if model_type == 'table' or extra_input:
+                preds = model(images, data=batch[1:])
+            elif model_type in ["kie", 'vqa']:
+                preds = model(batch)
             else:
-                if model_type == 'table' or extra_input:
-                    preds = model(images, data=batch[1:])
-                elif model_type in ["kie"]:
-                    preds = model(batch)
-                elif model_type in ['sr']:
-                    preds = model(batch)
-                    sr_img = preds["sr_img"]
-                    lr_img = preds["lr_img"]
-                else:
-                    preds = model(images)
+                preds = model(images)
 
             batch_numpy = []
             for item in batch:
@@ -544,20 +480,16 @@ def eval(model,
             total_time += time.time() - start
             # Evaluate the results of the current batch
             if model_type in ['table', 'kie']:
-                if post_process_class is None:
-                    eval_class(preds, batch_numpy)
-                else:
-                    post_result = post_process_class(preds, batch_numpy)
-                    eval_class(post_result, batch_numpy)
-            elif model_type in ['sr']:
                 eval_class(preds, batch_numpy)
+            elif model_type in ['vqa']:
+                post_result = post_process_class(preds, batch_numpy)
+                eval_class(post_result, batch_numpy)
             else:
                 post_result = post_process_class(preds, batch_numpy[1])
                 eval_class(post_result, batch_numpy)
 
             pbar.update(1)
             total_frame += len(images)
-            sum_images += 1
         # Get final metric，eg. acc or hmean
         metric = eval_class.get_metric()
 
@@ -650,9 +582,7 @@ def preprocess(is_train=False):
     assert alg in [
         'EAST', 'DB', 'SAST', 'Rosetta', 'CRNN', 'STARNet', 'RARE', 'SRN',
         'CLS', 'PGNet', 'Distillation', 'NRTR', 'TableAttn', 'SAR', 'PSE',
-        'SEED', 'SDMGR', 'LayoutXLM', 'LayoutLM', 'LayoutLMv2', 'PREN', 'FCE',
-        'SVTR', 'ViTSTR', 'ABINet', 'DB++', 'TableMaster', 'SPIN', 'VisionLAN',
-        'Gestalt', 'SLANet', 'RobustScanner'
+        'SEED', 'SDMGR', 'LayoutXLM', 'LayoutLM', 'PREN', 'FCE', 'SVTR'
     ]
 
     if use_xpu:
@@ -671,10 +601,9 @@ def preprocess(is_train=False):
     if 'use_visualdl' in config['Global'] and config['Global']['use_visualdl']:
         save_model_dir = config['Global']['save_model_dir']
         vdl_writer_path = '{}/vdl/'.format(save_model_dir)
-        log_writer = VDLLogger(vdl_writer_path)
+        log_writer = VDLLogger(save_model_dir)
         loggers.append(log_writer)
-    if ('use_wandb' in config['Global'] and
-            config['Global']['use_wandb']) or 'wandb' in config:
+    if ('use_wandb' in config['Global'] and config['Global']['use_wandb']) or 'wandb' in config:
         save_dir = config['Global']['save_model_dir']
         wandb_writer_path = "{}/wandb".format(save_dir)
         if "wandb" in config:

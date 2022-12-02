@@ -216,7 +216,7 @@ class TextDetector(object):
         dt_boxes = np.array(dt_boxes_new)
         return dt_boxes
 
-    def __call__(self, img, image_pure_name):
+    def __call__(self, img, image_pure_name, erode_kernel):
         
         ori_im = img.copy()
         data = {'image': img}
@@ -279,7 +279,7 @@ class TextDetector(object):
         
         ### 
         # print(preds.shape)
-        print(len(outputs)) # 1 
+        # print(len(outputs)) # 1 
 
         #self.predictor.try_shrink_memory()
         
@@ -299,7 +299,7 @@ class TextDetector(object):
         # im.save('./sample_result_{}.jpg'.format(self.counter))
         self.counter += 1
         
-        post_result = self.postprocess_op(preds, shape_list, image_pure_name=image_pure_name)
+        post_result = self.postprocess_op(preds, shape_list, image_pure_name=image_pure_name, erode_kernel=erode_kernel)
         dt_boxes = post_result[0]['points']
         scores = post_result[0]['scores'] ###
         if (self.det_algorithm == "SAST" and self.det_sast_polygon) or (
@@ -317,12 +317,15 @@ class TextDetector(object):
 
 if __name__ == "__main__":
     args = utility.parse_args() ###
+
     image_file_list = get_image_file_list(args.image_dir)
+    
     text_detector = TextDetector(args) ###
     count = 0
     total_time = 0
     #draw_img_save = "./inference_results" ###
     draw_img_save = args.draw_img_save_dir
+    erode_kernel = args.erode_kernel
 
     if args.warmup:
         img = np.random.uniform(0, 255, [640, 640, 3]).astype(np.uint8)
@@ -331,6 +334,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(draw_img_save):
         os.makedirs(draw_img_save)
+        
     save_results = []
     for image_file in image_file_list:
         img, flag, _ = check_and_read(image_file)
@@ -349,7 +353,7 @@ if __name__ == "__main__":
         ### 
         img_name_pure = os.path.split(image_file)[-1]
 
-        dt_boxes, _, scores= text_detector(img, img_name_pure) ###
+        dt_boxes, _, scores= text_detector(img, img_name_pure, erode_kernel) ###
         elapse = time.time() - st
         if count > 0:
             total_time += elapse

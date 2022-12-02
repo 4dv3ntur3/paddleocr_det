@@ -142,9 +142,8 @@ def init_args():
     
     
     ### apply erosion
-    parser.add_argument("--erode_kernel", type=int, default=4, help="kernel size for opencv erosion")
-    
-    
+    parser.add_argument("--erode_kernel", type=int, default=None, help="kernel size for opencv erosion postprocess")
+
     ### directory for saving inference results
     parser.add_argument(
         "--draw_img_save_dir", type=str, default="./inference_results")
@@ -279,7 +278,7 @@ def create_predictor(args, mode, logger):
         config.switch_ir_optim(True)
 
         # create predictor
-        predictor = inference.create_predictor(config) # 
+        predictor = inference.create_predictor(config) # 여기는 jump가 안 됨... 
         input_names = predictor.get_input_names()
         if mode in ['ser', 're']:
             input_tensor = []
@@ -350,9 +349,9 @@ def draw_text_det_res(dt_boxes, img_path, scores):
         cv2.polylines(src_im, [box], True, color=(255, 0, 255), thickness=2)
         
         ### writing score onto the image
-        score_box_root = box[2]
-        score_box = [[score_box_root[0]+10, score_box_root[1]+10], [score_box_root[0], score_box_root[1]+10],[score_box_root[0], score_box_root[1]], [score_box_root[0]-+10, score_box_root[1]]]
-        score_box = np.array(score_box).astype(np.float32).reshape((-1, 1, 2))
+        # score_box_root = box[2]
+        # score_box = [[score_box_root[0]+10, score_box_root[1]+10], [score_box_root[0], score_box_root[1]+10],[score_box_root[0], score_box_root[1]], [score_box_root[0]-+10, score_box_root[1]]]
+        # score_box = np.array(score_box).astype(np.float32).reshape((-1, 1, 2))
         # score_box = -1 * score_box + src_im.shape[0]
         
         #print(score_box[0][0][0])
