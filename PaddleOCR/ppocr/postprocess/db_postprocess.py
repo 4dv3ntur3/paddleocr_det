@@ -25,6 +25,10 @@ import paddle
 from shapely.geometry import Polygon
 import pyclipper
 
+import sys
+
+np.set_printoptions(threshold=sys.maxsize)
+
 
 class DBPostProcess(object):
     """
@@ -119,11 +123,14 @@ class DBPostProcess(object):
         bitmap__ = (bitmap * 255).astype(np.uint8)
         
         ### save pred
-        _pred = (pred*255).astype(np.uint8)
-        cv2.imwrite('./{}_pred.jpg'.format(image_pure_name), _pred)
+        # _pred = (pred*255).astype(np.uint8)
+        # cv2.imwrite('./{}_pred.jpg'.format(image_pure_name), _pred)
     
-        ### save bitmap
-        cv2.imwrite('./{}_bitmap.jpg'.format(image_pure_name), bitmap__)
+        # ### save bitmap
+        # cv2.imwrite('./{}_bitmap.jpg'.format(image_pure_name), bitmap__)
+        
+        # check_bool = cv2.imread('./{}_bitmap.jpg'.format(image_pure_name))
+        # print(check_bool)
         
         ### erosion 
         if erode_kernel:
@@ -288,8 +295,8 @@ class DBPostProcess(object):
         h, w = bitmap.shape[:2]
         box = _box.copy()
         
-        print(h, w) # 896, 672
-        print(box.shape) # 4, 2 ( x, y 좌표 4개) 
+        # print(h, w) # 896, 672
+        # print(box.shape) # 4, 2 ( x, y 좌표 4개) 
         # print(box)
         # quit()
         
@@ -304,27 +311,27 @@ class DBPostProcess(object):
         
         # contour 내 좌표값의 각 min, max값 추출 ()
         
-        print("xmin")
-        print(xmin, xmax, ymin, ymax) # 502, 570, 865, 869
+        # print("xmin")
+        # print(xmin, xmax, ymin, ymax) # 502, 570, 865, 869
         
-        print("box")
-        print(box)
+        # print("box")
+        # print(box)
         
         mask = np.zeros((ymax - ymin + 1, xmax - xmin + 1), dtype=np.uint8) # box (w, h)만큼 0으로 채운 mask (0이 black, 1이 white)
         box[:, 0] = box[:, 0] - xmin # x값들에서 xmin 빼기 
         box[:, 1] = box[:, 1] - ymin # y값들에서 ymin 빼기 
         
-        print('after box')
-        print(box)
+        # print('after box')
+        # print(box)
         
         print("=======================")
-        print(mask.shape) # (14, 69)
-        print(box.shape) # (4, 2)
+        # print(mask.shape) # (14, 69)
+        # print(box.shape) # (4, 2)
         # a = box.reshape(1, -1, 2).astype(np.int32) # (1, 4, 2) # 지정된 곳에는 들어가고 -1 들어간 부분은 남은 차원 알아서 맞추기 
 
         cv2.fillPoly(mask, box.reshape(1, -1, 2).astype(np.int32), 1) # mask에서 box 부분을 까맣게? (0: black, 255: white)
         # (1, 4, 2) -> 
-        print(box)
+        # print(box)
         
         # cv2.imwrite('./box_masked.jpg', mask)
         # quit()
@@ -366,9 +373,11 @@ class DBPostProcess(object):
         pred = pred[:, 0, :, :] # N, C, H, W
         segmentation = pred > self.thresh # bitmap
         
+        # print(segmentation)
+        
         # print(pred.shape) # 1, 896, 672
         # segmentation_ = (pred*255).astype(np.uint8)[0]
-        # cv2.imwrite("./output_thresh_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255).astype(np.uint8)[0])
+        cv2.imwrite("./output_prob_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255))
         # # print(np.max(segmentatiion_), np.min(segmentatiion_))
         # print(segmentation) 
         # print(self.dilation_kernel) # None

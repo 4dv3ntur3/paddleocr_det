@@ -341,9 +341,9 @@ if __name__ == "__main__":
         if not flag:
             img = cv2.imread(image_file)
             
-            # img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE) ### gray로 읽기
-            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-            # cv2.imwrite('./output_gray_{}.jpg'.format(count+1), img)
+            img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE) ### gray로 읽기
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            cv2.imwrite('./output_gray_{}.jpg'.format(count+1), img)
             
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
