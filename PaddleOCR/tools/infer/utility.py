@@ -12,13 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+
+
 import argparse
 import os
+
 import sys
 import platform
 import cv2
 import numpy as np
 import paddle
+
+# print(os.environ.get('OMP_NUM_THREADS')) # 여기서 갑자기 1이 됨 ; 
+# print(os.environ.get('OPENBLAS_NUM_THREADS'))
+# print(os.environ.get('MKL_NUM_THREADS'))
+
+###
+
 from PIL import Image, ImageDraw, ImageFont
 import math
 from paddle import inference
@@ -344,14 +355,14 @@ def draw_e2e_res(dt_boxes, strs, img_path):
 ###
 def draw_text_det_res(dt_boxes, img_path, scores):
     src_im = cv2.imread(img_path)
-    for box, score in zip(dt_boxes, scores): ###
+    for i, (box, score) in enumerate(zip(dt_boxes, scores)): ###
         box = np.array(box).astype(np.int32).reshape(-1, 2)
         cv2.polylines(src_im, [box], True, color=(255, 0, 255), thickness=2)
         
         ### writing score onto the image
-        # score_box_root = box[2]
-        # score_box = [[score_box_root[0]+10, score_box_root[1]+10], [score_box_root[0], score_box_root[1]+10],[score_box_root[0], score_box_root[1]], [score_box_root[0]-+10, score_box_root[1]]]
-        # score_box = np.array(score_box).astype(np.float32).reshape((-1, 1, 2))
+        score_box_root = box[2]
+        score_box = [[score_box_root[0]+10, score_box_root[1]+10], [score_box_root[0], score_box_root[1]+10],[score_box_root[0], score_box_root[1]], [score_box_root[0]-10, score_box_root[1]]]
+        score_box = np.array(score_box).astype(np.float32).reshape((-1, 1, 2))
         # score_box = -1 * score_box + src_im.shape[0]
         
         #print(score_box[0][0][0])
@@ -361,6 +372,10 @@ def draw_text_det_res(dt_boxes, img_path, scores):
         
         # scan_test_2.jpg, box[2]
         # cv2.putText(src_im, str(round(score, 2)), (int(score_box[0][0][0]), int(score_box[0][0][1])), cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 3, 0) # SIZE, COLOR, thickness, org 
+        
+        # write index 
+        # cv2.putText(src_im, str(i), (int(score_box[0][0][0]), int(score_box[0][0][1])), cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 3, 0) # SIZE, COLOR, thickness, org 
+        
         
         ###
         

@@ -44,8 +44,6 @@ def draw_det_res(dt_boxes, config, img, img_name, save_path, scores):
         import cv2
         src_im = img
         for box, score in zip(dt_boxes, scores):
-            
-            print(score)
 
             box = np.array(box).astype(np.int32).reshape((-1, 1, 2))
             cv2.polylines(src_im, [box], True, color=(255, 255, 0), thickness=2)

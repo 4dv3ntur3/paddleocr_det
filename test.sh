@@ -1,0 +1,1 @@
+source paddleocr/bin/activate

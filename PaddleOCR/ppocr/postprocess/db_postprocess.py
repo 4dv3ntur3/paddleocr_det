@@ -163,7 +163,7 @@ class DBPostProcess(object):
         # im.save('./img_bitmap_mask_{}.jpg'.format(self.counter))
         
         # save bitmap
-        cv2.imwrite('./det_res_{}_mask.jpg'.format(image_pure_name), contour_input)
+        # cv2.imwrite('./det_res_{}_mask.jpg'.format(image_pure_name), contour_input)
 
         
         if len(outs) == 3:
@@ -377,7 +377,7 @@ class DBPostProcess(object):
         
         # print(pred.shape) # 1, 896, 672
         # segmentation_ = (pred*255).astype(np.uint8)[0]
-        cv2.imwrite("./output_prob_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255))
+        # cv2.imwrite("./output_prob_{}_{}.jpg".format(self.thresh, self.counter), (segmentation*255))
         # # print(np.max(segmentatiion_), np.min(segmentatiion_))
         # print(segmentation) 
         # print(self.dilation_kernel) # None

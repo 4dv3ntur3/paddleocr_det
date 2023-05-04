@@ -11,28 +11,47 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from threadpoolctl import ThreadpoolController, threadpool_info
+from pprint import pprint
+
+pprint(threadpool_info())
+print("=======================")
+    
 import os
 import sys
-
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__dir__)
 sys.path.insert(0, os.path.abspath(os.path.join(__dir__, '../..')))
+
 
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
 
 import cv2
 import numpy as np
+
+pprint(threadpool_info())
+print("=======================")
+
+
 import time
 import sys
-
 import tools.infer.utility as utility
+
+pprint(threadpool_info())
+print("=======================")
+
+# print(os.environ.get('OMP_NUM_THREADS')) # 여기서 갑자기 1이 됨 ; 
+# print(os.environ.get('OPENBLAS_NUM_THREADS'))
+# print(os.environ.get('MKL_NUM_THREADS'))
+# quit()
+
 from ppocr.utils.logging import get_logger
 from ppocr.utils.utility import get_image_file_list, check_and_read
 from ppocr.data import create_operators, transform
 from ppocr.postprocess import build_post_process
 import json
 logger = get_logger()
-
 
 class TextDetector(object):
     def __init__(self, args):
@@ -230,6 +249,9 @@ class TextDetector(object):
 
         data = transform(data, self.preprocess_op)
         img, shape_list = data
+        
+
+        
         # print(data[1]) # [898.         668.           0.99777283   1.00598802]
         
         # print(img.shape)
@@ -249,16 +271,16 @@ class TextDetector(object):
             input_dict = {}
             input_dict[self.input_tensor.name] = img
             outputs = self.predictor.run(self.output_tensors, input_dict)
-        else:
+        else: # 16개 
             self.input_tensor.copy_from_cpu(img)
-            self.predictor.run()
+            self.predictor.run() ## 이거 빠지면 RuntimeError: (PreconditionNotMet) Tensor holds no memory. Call Tensor::mutable_data firstly. [Hint: holder_ should not be null.]
             outputs = []
             for output_tensor in self.output_tensors:
                 output = output_tensor.copy_to_cpu()
                 outputs.append(output)
             if self.args.benchmark:
                 self.autolog.times.stamp()
-
+                
         preds = {}
         if self.det_algorithm == "EAST":
             preds['f_geo'] = outputs[0]
@@ -275,7 +297,7 @@ class TextDetector(object):
                 preds['level_{}'.format(i)] = output
         else:
             raise NotImplementedError
-        
+    
         
         ### 
         # print(preds.shape)
@@ -300,6 +322,7 @@ class TextDetector(object):
         self.counter += 1
         
         post_result = self.postprocess_op(preds, shape_list, image_pure_name=image_pure_name, erode_kernel=erode_kernel)
+        
         dt_boxes = post_result[0]['points']
         scores = post_result[0]['scores'] ###
         if (self.det_algorithm == "SAST" and self.det_sast_polygon) or (
@@ -312,15 +335,29 @@ class TextDetector(object):
         if self.args.benchmark:
             self.autolog.times.end(stamp=True)
         et = time.time()
+        
         return dt_boxes, et - st, scores ###
 
 
 if __name__ == "__main__":
+
+    pprint("main")
+    pprint(threadpool_info())
+    pprint("==================")
+
     args = utility.parse_args() ###
+    
+    # np_ = "OMP_NUM_THREADS"
+    # openblas = "OPENBLAS_NUM_THREADS"
+    # mkl = "MKL_NUM_THREADS"
+
+    # os.environ[np_] = "1"
+    # os.environ[openblas] = "1"
+    # os.environ[mkl] = "1"
 
     image_file_list = get_image_file_list(args.image_dir)
-    
     text_detector = TextDetector(args) ###
+
     count = 0
     total_time = 0
     #draw_img_save = "./inference_results" ###
@@ -341,19 +378,29 @@ if __name__ == "__main__":
         if not flag:
             img = cv2.imread(image_file)
             
-            img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE) ### gray로 읽기
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-            cv2.imwrite('./output_gray_{}.jpg'.format(count+1), img)
+            # img = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE) ### gray로 읽기
+            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # cv2.imwrite('./output_gray_{}.jpg'.format(count+1), img)
             
         if img is None:
             logger.info("error in loading image:{}".format(image_file))
             continue
         st = time.time()
-        
+
         ### 
         img_name_pure = os.path.split(image_file)[-1]
+        dt_boxes, _, scores= text_detector(img, img_name_pure, erode_kernel=None) ###
+        
+        pprint("after detetction")
+        pprint(threadpool_info())
+        
+        # print(os.environ.get('OMP_NUM_THREADS')) # 여기서 갑자기 1이 됨 ; 
+        # print(os.environ.get('OPENBLAS_NUM_THREADS'))
+        # print(os.environ.get('MKL_NUM_THREADS'))
+        # print(os.environ.get('OPENBLAS_MAIN_FREE'))
+        
+        # quit()
 
-        dt_boxes, _, scores= text_detector(img, img_name_pure, erode_kernel) ###
         elapse = time.time() - st
         if count > 0:
             total_time += elapse
@@ -369,9 +416,10 @@ if __name__ == "__main__":
                                 "det_res_{}".format(img_name_pure))
         cv2.imwrite(img_path, src_im)
         logger.info("The visualized image saved in {}".format(img_path))
-
+        
     with open(os.path.join(draw_img_save, "det_results.txt"), 'w') as f:
         f.writelines(save_results)
         f.close()
     if args.benchmark:
         text_detector.autolog.report()
+        
