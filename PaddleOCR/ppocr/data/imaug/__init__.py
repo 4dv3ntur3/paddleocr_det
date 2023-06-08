@@ -53,6 +53,8 @@ def transform(data, ops=None):
         ops = []
     for op in ops:
         
+        # print(op) # DetResizeForTest, NormalizeImage, ToCHWImage, KeepKeys
+        
         data = op(data)
 
         if data is None:

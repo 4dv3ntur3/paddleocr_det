@@ -36,7 +36,6 @@ from paddle import inference
 import time
 from ppocr.utils.logging import get_logger
 
-
 def str2bool(v):
     return v.lower() in ("true", "t", "1")
 
@@ -120,14 +119,14 @@ def init_args():
     parser.add_argument("--e2e_pgnet_mode", type=str, default='fast')
 
     # params for text classifier
-    parser.add_argument("--use_angle_cls", type=str2bool, default=False)
+    parser.add_argument("--use_angle_cls", type=str2bool, default=True)
     parser.add_argument("--cls_model_dir", type=str)
     parser.add_argument("--cls_image_shape", type=str, default="3, 48, 192")
     parser.add_argument("--label_list", type=list, default=['0', '180'])
     parser.add_argument("--cls_batch_num", type=int, default=6)
     parser.add_argument("--cls_thresh", type=float, default=0.9)
 
-    parser.add_argument("--enable_mkldnn", type=str2bool, default=False)
+    parser.add_argument("--enable_mkldnn", type=str2bool, default=True)
     parser.add_argument("--cpu_threads", type=int, default=10)
     parser.add_argument("--use_pdserving", type=str2bool, default=False)
     parser.add_argument("--warmup", type=str2bool, default=False)
@@ -158,9 +157,7 @@ def init_args():
     ### directory for saving inference results
     parser.add_argument(
         "--draw_img_save_dir", type=str, default="./inference_results")
-    
-    
-    
+
     return parser
 
 

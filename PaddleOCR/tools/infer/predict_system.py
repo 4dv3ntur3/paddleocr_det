@@ -68,7 +68,7 @@ class TextSystem(object):
         time_dict = {'det': 0, 'rec': 0, 'csl': 0, 'all': 0}
         start = time.time()
         ori_im = img.copy()
-        dt_boxes, elapse = self.text_detector(img)
+        dt_boxes, _, elapse = self.text_detector(img) ### filter_boxes, filter_rec_res, time_dict
         time_dict['det'] = elapse
         logger.debug("dt_boxes num : {}, elapse : {}".format(
             len(dt_boxes), elapse))

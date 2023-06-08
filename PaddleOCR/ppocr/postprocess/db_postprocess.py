@@ -25,9 +25,10 @@ import paddle
 from shapely.geometry import Polygon
 import pyclipper
 
+###
 import sys
-
 np.set_printoptions(threshold=sys.maxsize)
+import os
 
 
 class DBPostProcess(object):
@@ -44,13 +45,14 @@ class DBPostProcess(object):
                  use_dilation=False,
                  score_mode="fast",
                  use_polygon=False,
+                 draw_img_save_dir = None,
                  **kwargs):
         self.thresh = thresh
         self.box_thresh = box_thresh
         self.max_candidates = max_candidates
         self.unclip_ratio = unclip_ratio
         self.min_size = 3
-        self.                                score_mode = score_mode
+        self.score_mode = score_mode
         self.use_polygon = use_polygon
         assert score_mode in [
             "slow", "fast"
@@ -59,8 +61,9 @@ class DBPostProcess(object):
         self.dilation_kernel = None if not use_dilation else np.array(
             [[1, 1], [1, 1]])
         
-        ###
+        ### image save directory 
         self.counter = 1
+        self.draw_img_save_dir = draw_img_save_dir
 
     def polygons_from_bitmap(self, pred, _bitmap, dest_width, dest_height):
         '''
@@ -111,8 +114,8 @@ class DBPostProcess(object):
 
 
     ### boxes, scores = self.boxes_from_bitmap(pred[batch_index], mask, src_w, src_h)
-    
-    def boxes_from_bitmap(self, pred, _bitmap, dest_width, dest_height, image_pure_name, erode_kernel):
+
+    def boxes_from_bitmap(self, pred, _bitmap, dest_width, dest_height, image_pure_name=None, erode_kernel=None):
         '''
         _bitmap: single map with shape (1, H, W),
                 whose values are binarized as {0, 1}
@@ -122,12 +125,19 @@ class DBPostProcess(object):
         height, width = bitmap.shape
         bitmap__ = (bitmap * 255).astype(np.uint8)
         
+        
+        image_putre_name_without_ext = os.path.splitext(image_pure_name)[0]
+        
         ### save pred
-        # _pred = (pred*255).astype(np.uint8)
-        # cv2.imwrite('./{}_pred.jpg'.format(image_pure_name), _pred)
+        # pred_dir = os.path.join(self.draw_img_save_dir, "pred")
+        pred_fn = os.path.join(self.draw_img_save_dir, f'{image_putre_name_without_ext}_pred.png')
+        _pred = (pred*255).astype(np.uint8)
+        cv2.imwrite(pred_fn, _pred)
     
         # ### save bitmap
-        # cv2.imwrite('./{}_bitmap.jpg'.format(image_pure_name), bitmap__)
+        # pred_dir = os.path.join(self.draw_img_save_dir, "contour_input")
+        bitmap_fn = os.path.join(self.draw_img_save_dir, f'{image_putre_name_without_ext}_contour_input.png')
+        cv2.imwrite(bitmap_fn, bitmap__)
         
         # check_bool = cv2.imread('./{}_bitmap.jpg'.format(image_pure_name))
         # print(check_bool)
@@ -163,7 +173,7 @@ class DBPostProcess(object):
         # im.save('./img_bitmap_mask_{}.jpg'.format(self.counter))
         
         # save bitmap
-        # cv2.imwrite('./det_res_{}_mask.jpg'.format(image_pure_name), contour_input)
+        # cv2.imwrite('./{}_contour_input.jpg'.format(image_pure_name), contour_input)
 
         
         if len(outs) == 3:
@@ -324,7 +334,7 @@ class DBPostProcess(object):
         # print('after box')
         # print(box)
         
-        print("=======================")
+        # print("=======================")
         # print(mask.shape) # (14, 69)
         # print(box.shape) # (4, 2)
         # a = box.reshape(1, -1, 2).astype(np.int32) # (1, 4, 2) # 지정된 곳에는 들어가고 -1 들어간 부분은 남은 차원 알아서 맞추기 
@@ -397,7 +407,7 @@ class DBPostProcess(object):
             https://opencv-python.readthedocs.io/en/latest/doc/09.imageThresholding/imageThresholding.html 
             '''
             import os
-            image_pure_name = os.path.splitext(image_pure_name)[0]
+            # image_pure_name = os.path.splitext(image_pure_name)[0]
                 
             if self.use_polygon is True:
                 boxes, scores = self.polygons_from_bitmap(pred[batch_index],

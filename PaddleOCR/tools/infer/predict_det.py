@@ -15,8 +15,8 @@
 from threadpoolctl import ThreadpoolController, threadpool_info
 from pprint import pprint
 
-pprint(threadpool_info())
-print("=======================")
+# pprint(threadpool_info())
+# print("=======================")
     
 import os
 import sys
@@ -28,18 +28,19 @@ sys.path.insert(0, os.path.abspath(os.path.join(__dir__, '../..')))
 os.environ["FLAGS_allocator_strategy"] = 'auto_growth'
 
 import cv2
+cv2.setNumThreads(0)
+
 import numpy as np
 
-pprint(threadpool_info())
-print("=======================")
+# pprint(threadpool_info())
+# print("=======================")
 
 
 import time
 import sys
 import tools.infer.utility as utility
-
-pprint(threadpool_info())
-print("=======================")
+# pprint(threadpool_info())
+# print("=======================")
 
 # print(os.environ.get('OMP_NUM_THREADS')) # 여기서 갑자기 1이 됨 ; 
 # print(os.environ.get('OPENBLAS_NUM_THREADS'))
@@ -92,6 +93,7 @@ class TextDetector(object):
             postprocess_params["unclip_ratio"] = args.det_db_unclip_ratio
             postprocess_params["use_dilation"] = args.use_dilation
             postprocess_params["score_mode"] = args.det_db_score_mode
+            postprocess_params["draw_img_save_dir"] = args.draw_img_save_dir
         elif self.det_algorithm == "DB++":
             postprocess_params['name'] = 'DBPostProcess'
             postprocess_params["thresh"] = args.det_db_thresh
@@ -235,8 +237,9 @@ class TextDetector(object):
         dt_boxes = np.array(dt_boxes_new)
         return dt_boxes
 
-    def __call__(self, img, image_pure_name, erode_kernel):
-        
+    def __call__(self, img, image_pure_name=None, erode_kernel=None):
+    
+            
         ori_im = img.copy()
         data = {'image': img}
 
@@ -246,12 +249,11 @@ class TextDetector(object):
             self.autolog.times.start()
             
         # print(data['image'].shape)
-
+        
         data = transform(data, self.preprocess_op)
         img, shape_list = data
         
 
-        
         # print(data[1]) # [898.         668.           0.99777283   1.00598802]
         
         # print(img.shape)
@@ -272,7 +274,11 @@ class TextDetector(object):
             input_dict[self.input_tensor.name] = img
             outputs = self.predictor.run(self.output_tensors, input_dict)
         else: # 16개 
+            # pprint(threadpool_info())
+            # print("=======================")
             self.input_tensor.copy_from_cpu(img)
+
+    
             self.predictor.run() ## 이거 빠지면 RuntimeError: (PreconditionNotMet) Tensor holds no memory. Call Tensor::mutable_data firstly. [Hint: holder_ should not be null.]
             outputs = []
             for output_tensor in self.output_tensors:
@@ -311,15 +317,15 @@ class TextDetector(object):
         # print(np.max(outputs[0]), np.min(outputs[0]))
         # output = np.squeeze(outputs[0])
         # output = (output*255).astype(np.uint8)
-        # print(np.max(output), np.min(output)) # 255, 0
-        # print(output.shape) # 1, 1, 896, 672?
+        # # print(np.max(output), np.min(output)) # 255, 0
+        # # print(output.shape) # 1, 1, 896, 672?
         # output = np.transpose(output, (1, 2, 0)) # CHW -> HWC
         # print("transposed: ", output.shape)
         
         # from PIL import Image
         # im = Image.fromarray(output)
         # im.save('./sample_result_{}.jpg'.format(self.counter))
-        self.counter += 1
+        # self.counter += 1
         
         post_result = self.postprocess_op(preds, shape_list, image_pure_name=image_pure_name, erode_kernel=erode_kernel)
         
@@ -341,12 +347,12 @@ class TextDetector(object):
 
 if __name__ == "__main__":
 
-    pprint("main")
-    pprint(threadpool_info())
-    pprint("==================")
+    # pprint("main")
+    # pprint(threadpool_info())
+    # pprint("==================")
 
     args = utility.parse_args() ###
-    
+
     # np_ = "OMP_NUM_THREADS"
     # openblas = "OPENBLAS_NUM_THREADS"
     # mkl = "MKL_NUM_THREADS"
@@ -357,6 +363,7 @@ if __name__ == "__main__":
 
     image_file_list = get_image_file_list(args.image_dir)
     text_detector = TextDetector(args) ###
+
 
     count = 0
     total_time = 0
@@ -390,9 +397,10 @@ if __name__ == "__main__":
         ### 
         img_name_pure = os.path.split(image_file)[-1]
         dt_boxes, _, scores= text_detector(img, img_name_pure, erode_kernel=None) ###
+
         
-        pprint("after detetction")
-        pprint(threadpool_info())
+        # pprint("after detetction")
+        # pprint(threadpool_info())
         
         # print(os.environ.get('OMP_NUM_THREADS')) # 여기서 갑자기 1이 됨 ; 
         # print(os.environ.get('OPENBLAS_NUM_THREADS'))
@@ -413,7 +421,7 @@ if __name__ == "__main__":
         src_im = utility.draw_text_det_res(dt_boxes, image_file, scores)
         
         img_path = os.path.join(draw_img_save,
-                                "det_res_{}".format(img_name_pure))
+                                f"{img_name_pure}")
         cv2.imwrite(img_path, src_im)
         logger.info("The visualized image saved in {}".format(img_path))
         

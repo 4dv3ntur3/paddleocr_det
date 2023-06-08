@@ -188,4 +188,8 @@ model_dir/
 *.pdiparams.info
 *.pdmodel
 
+*.png
+*.jpg
+*.jpeg
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,python

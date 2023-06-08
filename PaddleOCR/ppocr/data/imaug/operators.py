@@ -223,22 +223,32 @@ class DetResizeForTest(object):
             self.limit_type = 'min'
 
     def __call__(self, data):
-        img = data['image']
+        
+
+
+        img = data['image']        
         # src_h, src_w, _ = img.shape
         src_h, src_w, _ = img.shape ### for grayscale
+    
         if sum([src_h, src_w]) < 64:
             img = self.image_padding(img)
 
         if self.resize_type == 0:
+
             # img, shape = self.resize_image_type0(img)
-            img, [ratio_h, ratio_w] = self.resize_image_type0(img)
+            img, [ratio_h, ratio_w] = self.resize_image_type0(img) ######### thread 
+
         elif self.resize_type == 2:
             img, [ratio_h, ratio_w] = self.resize_image_type2(img)
         else:
             # img, shape = self.resize_image_type1(img)
             img, [ratio_h, ratio_w] = self.resize_image_type1(img)
         data['image'] = img
+        
         data['shape'] = np.array([src_h, src_w, ratio_h, ratio_w])
+        
+
+        
         return data
 
     def image_padding(self, im, value=0):
@@ -271,6 +281,7 @@ class DetResizeForTest(object):
         limit_side_len = self.limit_side_len
         h, w, c = img.shape
         # h, w = img.shape
+        
 
         # limit the max side
         if self.limit_type == 'max':
@@ -302,7 +313,8 @@ class DetResizeForTest(object):
         try:
             if int(resize_w) <= 0 or int(resize_h) <= 0:
                 return None, (None, None)
-            img = cv2.resize(img, (int(resize_w), int(resize_h)))
+            img = cv2.resize(img, (int(resize_w), int(resize_h))) ####################### 범인
+
         except:
             print(img.shape, resize_w, resize_h)
             sys.exit(0)

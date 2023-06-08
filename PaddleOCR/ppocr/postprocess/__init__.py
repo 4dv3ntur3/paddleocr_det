@@ -63,5 +63,5 @@ def build_post_process(config, global_config=None):
         config.update(global_config)
     assert module_name in support_dict, Exception(
         'post process only support {}'.format(support_dict))
-    module_class = eval(module_name)(**config)
+    module_class = eval(module_name)(**config) # DBPostProcess(**config) 로 됨 eval 함수가 string -> variable로 변환해 주니까 
     return module_class
